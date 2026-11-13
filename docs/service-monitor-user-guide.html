@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Service Monitor &amp; Uptime Alerts — User Guide</title>
+    <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<div class="cover">
+    <div class="brand">Orca</div>
+    <h1>Service Monitor &amp; Uptime Alerts<br>User Guide</h1>
+    <div class="subtitle">Monitor payment gateways, carriers, ERPs and your own infrastructure from inside Magento,
+        with uptime history, incidents and email alerts.</div>
+    <img src="img/monitor-grid.png" alt="Monitors grid">
+    <div class="meta">Version 1.0.0 · Magento Open Source and Adobe Commerce 2.4.7+ · PHP 8.2 – 8.5</div>
+</div>
+
+<section class="toc">
+    <h1>Contents</h1>
+    <ol>
+        <li>Overview</li>
+        <li>Requirements</li>
+        <li>Installation</li>
+        <li>Configuration</li>
+        <li>Monitors</li>
+        <li>Monitor details: uptime, response time and incidents</li>
+        <li>Service discovery</li>
+        <li>Maintenance windows</li>
+        <li>Alerts</li>
+        <li>Dashboard widget</li>
+        <li>Command line</li>
+        <li>Permissions</li>
+        <li>How it works</li>
+        <li>Uninstallation</li>
+        <li>Troubleshooting</li>
+        <li>Support</li>
+    </ol>
+</section>
+
+<section class="chapter">
+    <h1>1. Overview</h1>
+    <p>Your store depends on services it doesn't control: payment gateways, shipping carriers, ERPs, search, Redis,
+        RabbitMQ. Orca Service Monitor checks them <strong>from your Magento server itself</strong>, using the same
+        network, DNS, firewall rules, proxy and TLS setup as your integrations. It catches problems an external uptime
+        tool never sees, such as a whitelisted IP that changed, a firewall rule or an outdated CA bundle.</p>
+    <ul>
+        <li>Check types: <strong>HTTP(S)</strong> (GET or HEAD), <strong>TCP port</strong> and <strong>DNS
+            record</strong> (A, AAAA, CNAME, MX, NS, TXT).</li>
+        <li><strong>Service discovery</strong>: finds your infrastructure, the enabled payment methods and carriers,
+            and other URLs in your configuration, and creates their monitors in one go.</li>
+        <li>HTTP success criteria: reachable, expected status codes or ranges, keyword present or absent; request
+            headers and Basic or Bearer authentication, stored encrypted.</li>
+        <li>90 day uptime bars, uptime for 24 hours, 7, 30 and 90 days, response time chart, incident log and latest
+            checks.</li>
+        <li>Email alerts when a service goes down and recovers, with an optional delay.</li>
+        <li>Optional per monitor: slow response and SSL expiry detection (degraded status), flapping detection and
+            admin dashboard widget. Every optional feature is off by default.</li>
+        <li>Maintenance windows, once or weekly.</li>
+        <li><strong>Check Now</strong> button, CLI command and an admin warning when the cron stops running the
+            checks.</li>
+        <li>English and Spanish translations.</li>
+    </ul>
+    <p>The module only makes requests to the services you choose to monitor. It never sends store data to third
+        parties.</p>
+
+    <h2>2. Requirements</h2>
+    <table>
+        <tr><th>Magento</th><td>Magento Open Source or Adobe Commerce 2.4.7 or later (Mage-OS 1.0 or later)</td></tr>
+        <tr><th>PHP</th><td>8.2, 8.3, 8.4 or 8.5</td></tr>
+        <tr><th>Cron</th><td>A working Magento cron. Checks run every minute in their own
+            <code>orca_service_monitor</code> cron group.</td></tr>
+        <tr><th>Email</th><td>Magento must be able to send email for the alerts.</td></tr>
+        <tr><th>Theme</th><td>Admin only: works with any storefront theme, including Hyvä.</td></tr>
+    </table>
+</section>
+
+<section class="chapter">
+    <h1>3. Installation</h1>
+    <p>Back up your code and database and, on a production store, enable maintenance mode before installing.</p>
+
+    <h2>Composer (recommended)</h2>
+    <p>After purchasing the extension, it is available with your Adobe Commerce Marketplace access keys:</p>
+<pre><code>composer require orca/module-service-monitor
+bin/magento module:enable Orca_ServiceMonitor
+bin/magento setup:upgrade
+bin/magento setup:di:compile
+bin/magento setup:static-content:deploy
+bin/magento cache:flush</code></pre>
+
+    <h2>Manual installation from the ZIP file</h2>
+    <ol>
+        <li>Create the folder <code>app/code/Orca/ServiceMonitor</code> in your Magento root.</li>
+        <li>Extract the contents of the ZIP file into that folder, so that <code>registration.php</code> is located at
+            <code>app/code/Orca/ServiceMonitor/registration.php</code>.</li>
+        <li>Run the same <code>bin/magento</code> commands listed above, from <code>module:enable</code> on.</li>
+    </ol>
+    <div class="note">In production mode, run <code>bin/magento deploy:mode:set production</code> instead of
+        <code>setup:di:compile</code> and <code>setup:static-content:deploy</code>.</div>
+
+    <h2>After installing</h2>
+    <ol>
+        <li>Make sure the Magento cron is running (<code>bin/magento cron:install</code>).</li>
+        <li>Set the alert recipients in <span class="path">Stores › Configuration › Orca › Service Monitor › Email
+            Notifications</span>.</li>
+        <li>Go to <span class="path">System › Service Monitor › Monitors</span> and click <strong>Discover
+            Services</strong> to create your first monitors.</li>
+    </ol>
+</section>
+
+<section class="chapter">
+    <h1>4. Configuration</h1>
+    <p>Go to <span class="path">Stores › Configuration › Orca › Service Monitor</span>, or
+        <span class="path">System › Service Monitor › Settings</span>.</p>
+    <table>
+        <tr><th>Group</th><th>Setting</th><th>Default</th><th>Description</th></tr>
+        <tr><td rowspan="5">General</td><td>Enable Scheduled Checks</td><td>Yes</td>
+            <td>Turns the cron checks on or off. Check Now and the CLI keep working.</td></tr>
+        <tr><td>Concurrent Checks</td><td>10</td><td>HTTP and TCP checks run in parallel.</td></tr>
+        <tr><td>Maximum Checks per Run</td><td>100</td><td>Due monitors checked by each cron run.</td></tr>
+        <tr><td>Warn When Checks Haven't Run For (Minutes)</td><td>10</td>
+            <td>Shows an admin message when the cron stops running the checks.</td></tr>
+        <tr><td>Show Dashboard Widget</td><td>Yes</td>
+            <td>Shows the dashboard widget. Turn it off to hide it for every admin user.</td></tr>
+        <tr><td rowspan="3">Email Notifications</td><td>Enable</td><td>Yes</td><td>Turns all alert emails on or off.</td></tr>
+        <tr><td>Recipients, Sender</td><td>None, General Contact</td>
+            <td>Default recipients, comma separated. A monitor can have its own.</td></tr>
+        <tr><td>Templates</td><td>Module templates</td><td>Down, recovered, degraded and flapping emails.</td></tr>
+        <tr><td rowspan="2">Flapping Detection</td><td>Incidents That Mark a Monitor as Flapping</td><td>4</td>
+            <td rowspan="2">A monitor with flapping detection enabled is flapping when it opens this many incidents
+                within the window.</td></tr>
+        <tr><td>Within (Minutes)</td><td>60</td></tr>
+        <tr><td rowspan="3">Service Discovery</td><td>Check Interval of Created Monitors</td><td>15 minutes</td>
+            <td>Interval of the monitors created from Discover Services.</td></tr>
+        <tr><td>Create Monitors as Active</td><td>Yes</td><td>Otherwise they are created inactive.</td></tr>
+        <tr><td>Look for New Services Daily</td><td>No</td>
+            <td>Shows an admin message when new services are found.</td></tr>
+        <tr><td rowspan="2">History</td><td>Keep Individual Checks For (Days)</td><td>14</td><td>Latest checks and
+            response time chart.</td></tr>
+        <tr><td>Keep Daily Summaries and Incidents For (Days)</td><td>400</td><td>Uptime bars and incident log.</td></tr>
+    </table>
+    <figure>
+        <img src="img/monitor-config.png" alt="Service Monitor configuration">
+        <figcaption>Service Monitor configuration.</figcaption>
+    </figure>
+</section>
+
+<section class="chapter">
+    <h1>5. Monitors</h1>
+    <p>Go to <span class="path">System › Service Monitor › Monitors</span>. The grid shows the status, type, target,
+        last check, response time and 30 day uptime bars of every monitor, with filters and mass actions to enable,
+        disable or delete monitors.</p>
+    <figure>
+        <img src="img/monitor-grid.png" alt="Monitors grid">
+        <figcaption>Monitors grid.</figcaption>
+    </figure>
+    <table>
+        <tr><th>Status</th><th>Meaning</th></tr>
+        <tr><td>Up</td><td>The last check succeeded.</td></tr>
+        <tr><td>Down</td><td>The check failed the configured number of consecutive times.</td></tr>
+        <tr><td>Degraded</td><td>Up, but slower than its threshold or with an SSL certificate about to expire. It
+            doesn't count as downtime.</td></tr>
+        <tr><td>Pending</td><td>Not checked yet, or failing but not confirmed yet.</td></tr>
+    </table>
+
+    <h2>Creating a monitor</h2>
+    <p>Click <strong>Add New Monitor</strong>. The form shows only the fields of the selected check type.</p>
+    <figure>
+        <img src="img/monitor-form.png" alt="HTTP monitor form">
+        <figcaption>HTTP monitor.</figcaption>
+    </figure>
+
+    <h3>Service</h3>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Active, Name</td><td>Inactive monitors are not checked.</td></tr>
+        <tr><td>Check Type</td><td><strong>HTTP(S)</strong>, <strong>TCP port</strong> or <strong>DNS
+            record</strong>.</td></tr>
+        <tr><td>URL, HTTP Method</td><td>HTTP: the URL to request, with GET or HEAD. HEAD is lighter but can't be
+            combined with a keyword check.</td></tr>
+        <tr><td>Host, Port</td><td>TCP: the service is up when the server accepts the connection, e.g. 3306 for MySQL
+            or 6379 for Redis.</td></tr>
+        <tr><td>Host, Record Type, Expected Value</td><td>DNS: the record must resolve. With an expected value, one of
+            the records must have exactly that value (TXT records only need to contain it).</td></tr>
+        <tr><td>Check Interval, Timeout</td><td>From every minute to every 60 minutes; timeout in seconds.</td></tr>
+    </table>
+    <div style="display: flex; gap: 4mm;">
+        <figure style="flex: 1"><img src="img/monitor-form-tcp.png" alt="TCP monitor"><figcaption>TCP port.</figcaption></figure>
+        <figure style="flex: 1"><img src="img/monitor-form-dns.png" alt="DNS monitor"><figcaption>DNS record.</figcaption></figure>
+    </div>
+
+    <h3>Request (HTTP)</h3>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Request Headers</td><td>Optional, one per line as <code>Name: value</code>, e.g.
+            <code>X-Api-Key: abc123</code>. Stored encrypted.</td></tr>
+        <tr><td>Authentication</td><td>None, Basic (username and password) or Bearer token. The password or token is
+            stored encrypted and never shown again; leave the field as is to keep it.</td></tr>
+    </table>
+
+    <h3>Success criteria (HTTP)</h3>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Consider the Service Up When</td><td><strong>Reachable</strong>: only network errors, timeouts and 5xx
+            responses are failures; fits APIs that answer 401 or 404 without credentials. <strong>Expected status
+            codes</strong>: e.g. <code>200,204</code> or <code>200-299</code>.</td></tr>
+        <tr><td>Keyword, Keyword Condition</td><td>Optional text the response must or must not contain, case
+            insensitive, within the first 1 MB.</td></tr>
+        <tr><td>Check SSL Certificate Expiry</td><td>Optional, https URLs: degraded when the certificate expires within
+            the configured days. An invalid or expired certificate always counts as down.</td></tr>
+    </table>
+
+    <h3>Alerts</h3>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Detect Slow Responses</td><td>Optional: degraded when the service answers slower than the threshold in
+            milliseconds.</td></tr>
+        <tr><td>Consecutive Failures Before Marking Down</td><td>Also applies to degraded checks. Failed checks are
+            retried every minute until the service recovers or is marked down.</td></tr>
+        <tr><td>Alert Only After Being Down For (Minutes)</td><td>0 sends the alert as soon as the service is marked
+            down.</td></tr>
+        <tr><td>Notify Recovery, Notify Degraded</td><td>Recovery email with the downtime; degraded email (needs slow
+            response or SSL expiry detection).</td></tr>
+        <tr><td>Flapping Detection</td><td>Optional: replaces repeated alerts with a single flapping email. See
+            section 9.</td></tr>
+        <tr><td>Show on Admin Dashboard</td><td>Optional: lists the monitor in the dashboard widget.</td></tr>
+        <tr><td>Recipients</td><td>Comma separated. Empty uses the recipients of the configuration.</td></tr>
+    </table>
+    <div class="note">Changing what a monitor checks (its type, URL, host, port or DNS record) resets its status and
+        closes its open incidents. Its history is kept.</div>
+</section>
+
+<section class="chapter">
+    <h1>6. Monitor details</h1>
+    <p>Click <strong>View</strong> in the grid to see the current status, the target, the last error, the uptime for
+        24 hours, 7, 30 and 90 days, the 90 day uptime bars, the response time of the last 24 hours, the incident log
+        and the latest checks. <strong>Check Now</strong> runs the check immediately.</p>
+    <figure>
+        <img src="img/monitor-view.png" alt="Monitor details" style="max-height: 215mm">
+        <figcaption>Monitor details.</figcaption>
+    </figure>
+    <figure>
+        <img src="img/monitor-view-down.png" alt="Down monitor">
+        <figcaption>A monitor that is down shows the cause and since when.</figcaption>
+    </figure>
+</section>
+
+<section class="chapter">
+    <h1>7. Service discovery</h1>
+    <p>Click <strong>Discover Services</strong> in the monitors grid. The module lists the services your store already
+        uses, read from <code>app/etc/env.php</code> and the configuration:</p>
+    <ul>
+        <li><strong>Infrastructure</strong>: database, Redis or Valkey (cache, page cache and sessions, grouped by
+            server), OpenSearch or Elasticsearch, RabbitMQ, Varnish and the SMTP server.</li>
+        <li><strong>Payment methods and shipping carriers</strong> enabled in any website, with their sandbox or
+            production endpoints following each method's mode.</li>
+        <li><strong>Other external URLs</strong> saved in the configuration. They are not selected by default, since
+            some are just links.</li>
+    </ul>
+    <figure>
+        <img src="img/discovery.png" alt="Discover Services" style="max-height: 150mm">
+        <figcaption>Discover Services.</figcaption>
+    </figure>
+    <p>Select the services and click <strong>Create Monitors</strong>, or ignore the ones you don't want suggested
+        again. Created monitors use a light setup: a reachable check with HEAD requests, the interval from the
+        configuration, 3 failures before marking down and every optional feature off. <strong>Credentials are never
+        copied.</strong></p>
+    <p>A service already monitored links to its monitor. When the configuration changes, for example a new RabbitMQ
+        host, the service is flagged as <em>Configuration changed</em>. Monitors are never updated
+        automatically.</p>
+    <div class="note">Developers can add their own services with a detector implementing
+        <code>Orca\ServiceMonitor\Model\Discovery\DetectorInterface</code>, registered in the <code>detectors</code>
+        argument of <code>Orca\ServiceMonitor\Model\Discovery\Discovery</code> in <code>di.xml</code>.</div>
+</section>
+
+<section class="chapter">
+    <h1>8. Maintenance windows</h1>
+    <p>Go to <span class="path">System › Service Monitor › Maintenance Windows</span> to schedule planned downtime.
+        During a window the checks still run and are recorded, but they don't change the status, count for uptime or
+        send alerts.</p>
+    <figure>
+        <img src="img/maintenance-grid.png" alt="Maintenance windows">
+        <figcaption>Maintenance windows.</figcaption>
+    </figure>
+    <figure>
+        <img src="img/maintenance-form.png" alt="Maintenance window form">
+        <figcaption>A weekly window that crosses midnight.</figcaption>
+    </figure>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Repeat</td><td><strong>Once</strong>: between a start and an end date and time. <strong>Every
+            week</strong>: on the selected days, between two times in the store timezone. The range can cross
+            midnight, e.g. 23:00 to 02:00.</td></tr>
+        <tr><td>All Monitors, Monitors</td><td>The window applies to the selected monitors, or to all of them when
+            <em>All Monitors</em> is enabled.</td></tr>
+    </table>
+</section>
+
+<section class="chapter">
+    <h1>9. Alerts</h1>
+    <p>A monitor is marked <strong>down</strong> after the configured consecutive failures, which opens an incident.
+        The down email is sent once the incident is older than the monitor's alert delay, and the recovery email when a
+        check succeeds again, including the downtime.</p>
+    <figure>
+        <img src="img/alert-email.png" alt="Down alert email" style="max-height: 120mm">
+        <figcaption>Down alert email.</figcaption>
+    </figure>
+    <h2>Degraded</h2>
+    <p>With slow response detection or SSL expiry detection enabled, a monitor can be marked
+        <strong>degraded</strong>. It is confirmed with the same consecutive check threshold, opens its own incident
+        and doesn't count as downtime. The degraded email is optional per monitor.</p>
+    <h2>Flapping</h2>
+    <p>When a monitor with flapping detection keeps going down and up (by default 4 incidents within 60 minutes), its
+        down and degraded emails are replaced by a single flapping email until the status is stable for a whole
+        window. A down alert still pending at that point is then sent.</p>
+
+    <h1 style="margin-top: 10mm">10. Dashboard widget</h1>
+    <p>Monitors with <em>Show on Admin Dashboard</em> enabled are listed at the bottom of the admin dashboard,
+        problems first, with their 30 day uptime. The widget is only shown to admin users who can view monitors, and it
+        can be turned off in <span class="path">General › Show Dashboard Widget</span>.</p>
+    <figure>
+        <img src="img/dashboard-widget.png" alt="Dashboard widget" style="max-height: 90mm">
+        <figcaption>Admin dashboard widget.</figcaption>
+    </figure>
+</section>
+
+<section class="chapter">
+    <h1>11. Command line</h1>
+<pre><code># Run the checks that are due
+bin/magento orca:service-monitor:run
+
+# Check specific monitors right away
+bin/magento orca:service-monitor:run --id=3 --id=5
+
+# Check every active monitor right away
+bin/magento orca:service-monitor:run --all
+
+# Run the module's cron group
+bin/magento cron:run --group=orca_service_monitor</code></pre>
+
+    <h1 style="margin-top: 10mm">12. Permissions</h1>
+    <p>Assign these resources to admin roles in <span class="path">System › Permissions › User Roles</span>:</p>
+    <table>
+        <tr><th>Resource</th><th>Allows</th></tr>
+        <tr><td>Service Monitor › View Monitors</td><td>View monitors</td></tr>
+        <tr><td>Service Monitor › View Monitors › Manage Monitors</td><td>Create, edit, delete and check monitors</td></tr>
+        <tr><td>Service Monitor › Maintenance Windows</td><td>Manage maintenance windows</td></tr>
+        <tr><td>Stores › Configuration › Service Monitor Settings</td><td>Change the configuration</td></tr>
+    </table>
+
+    <h1 style="margin-top: 10mm">13. How it works</h1>
+    <p>The <code>orca_service_monitor_run</code> job runs every minute in the <code>orca_service_monitor</code> cron
+        group, in its own process, and checks the monitors that are due. HTTP and TCP checks run concurrently, so a slow
+        service doesn't delay the others or other cron jobs. Monitors are checked type by type (HTTP, TCP, then DNS).
+        DNS lookups use the server's resolver, whose timeout comes from <code>/etc/resolv.conf</code>.</p>
+    <p>Each check is stored with the hostname of the server that ran it. Individual checks are kept for the
+        configured days, while daily summaries feed the uptime bars for longer.</p>
+</section>
+
+<section class="chapter">
+    <h1>14. Uninstallation</h1>
+    <p>Installed with Composer:</p>
+<pre><code>bin/magento module:uninstall Orca_ServiceMonitor --remove-data</code></pre>
+    <p>Installed manually:</p>
+<pre><code>bin/magento module:disable Orca_ServiceMonitor
+rm -rf app/code/Orca/ServiceMonitor
+bin/magento setup:upgrade</code></pre>
+    <p><code>--remove-data</code> drops the module tables (monitors, check history, daily summaries, incidents and
+        maintenance windows) and its configuration. Without it, and after a manual uninstallation, the data is kept
+        so your monitors are still there if you install the module again.</p>
+
+    <h1 style="margin-top: 10mm">15. Troubleshooting</h1>
+    <table>
+        <tr><th>Problem</th><th>Solution</th></tr>
+        <tr><td>Admin message: the checks haven't run</td><td>The Magento cron isn't running or is not running the
+            <code>orca_service_monitor</code> group. Check the crontab of the Magento user and run
+            <code>bin/magento cron:run --group=orca_service_monitor</code> to test it.</td></tr>
+        <tr><td>A service is down in the module but up from your computer</td><td>That is what the module is for: the
+            Magento server can't reach it. Check the firewall, DNS, proxy, IP whitelists and CA certificates of the
+            server.</td></tr>
+        <tr><td>No alert emails</td><td>Check that email notifications are enabled, that the monitor or the
+            configuration has recipients, the alert delay of the monitor, and that Magento can send email.</td></tr>
+        <tr><td>An API is marked down because it answers 401 or 404</td><td>Use <em>Reachable</em> as success
+            criteria, or add the authentication and the expected status codes.</td></tr>
+    </table>
+
+    <h1 style="margin-top: 10mm">16. Support</h1>
+    <p>For questions, bug reports or feature requests, contact us at <a href="mailto:orcashop.team@gmail.com">orcashop.team@gmail.com</a>.
+        Please include your Magento and PHP versions and the module version.</p>
+</section>
+
+</body>
+</html>

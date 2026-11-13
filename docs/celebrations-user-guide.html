@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Seasonal Storefront Effects — User Guide</title>
+    <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<div class="cover">
+    <div class="brand">Orca</div>
+    <h1>Seasonal Storefront Effects<br>User Guide</h1>
+    <div class="subtitle">Schedule snowfall, fireworks and confetti on your Magento storefront for holidays, sales and
+        store anniversaries.</div>
+    <img src="img/storefront-snowfall.png" alt="Snowfall on the storefront home page">
+    <div class="meta">Version 1.0.0 · Magento Open Source and Adobe Commerce 2.4.7+ · PHP 8.2 – 8.5</div>
+</div>
+
+<section class="toc">
+    <h1>Contents</h1>
+    <ol>
+        <li>Overview</li>
+        <li>Requirements</li>
+        <li>Installation</li>
+        <li>Configuration</li>
+        <li>Managing celebrations</li>
+        <li>Effects</li>
+        <li>How effects work with the cache</li>
+        <li>Command line</li>
+        <li>Uninstallation</li>
+        <li>Troubleshooting</li>
+        <li>Support</li>
+    </ol>
+</section>
+
+<section class="chapter">
+    <h1>1. Overview</h1>
+    <p>Orca Celebrations adds animated effects to your storefront without changing your theme. You decide which
+        effect runs, when it runs, on which store views and on which pages.</p>
+    <ul>
+        <li>Three effects: <strong>snowfall</strong>, <strong>fireworks</strong> and <strong>confetti</strong>.</li>
+        <li>Intensity, size, up to three colors or random colors, shadow and a custom image for the snowflakes.</li>
+        <li>Recurrence: <strong>once</strong> over a date range, <strong>yearly</strong> (ranges crossing the new year
+            included) or <strong>always</strong>.</li>
+        <li>Store view assignment and page targeting: home, category, product, CMS, cart, checkout, order success and
+            customer account pages.</li>
+        <li>Optional duration, for example a few seconds of confetti on the order success page.</li>
+        <li>Can be hidden on mobile devices and is never shown to visitors who prefer reduced motion.</li>
+        <li>Full page cache and Varnish friendly: effects start and stop on time on cached pages, using the store
+            timezone.</li>
+        <li>English and Spanish translations.</li>
+    </ul>
+
+    <h2>2. Requirements</h2>
+    <table>
+        <tr><th>Magento</th><td>Magento Open Source or Adobe Commerce 2.4.7 or later (Mage-OS 1.0 or later)</td></tr>
+        <tr><th>PHP</th><td>8.2, 8.3, 8.4 or 8.5</td></tr>
+        <tr><th>Theme</th><td>Luma or a Luma based theme</td></tr>
+        <tr><th>Cron</th><td>Optional. Only used to refresh the next dates shown in the admin grid.</td></tr>
+    </table>
+</section>
+
+<section class="chapter">
+    <h1>3. Installation</h1>
+    <p>Back up your code and database and, on a production store, enable maintenance mode before installing.</p>
+
+    <h2>Composer (recommended)</h2>
+    <p>After purchasing the extension, it is available with your Adobe Commerce Marketplace access keys:</p>
+<pre><code>composer require orca/module-celebrations
+bin/magento module:enable Orca_Celebrations
+bin/magento setup:upgrade
+bin/magento setup:di:compile
+bin/magento setup:static-content:deploy
+bin/magento cache:flush</code></pre>
+
+    <h2>Manual installation from the ZIP file</h2>
+    <ol>
+        <li>Create the folder <code>app/code/Orca/Celebrations</code> in your Magento root.</li>
+        <li>Extract the contents of the ZIP file into that folder, so that <code>registration.php</code> is located at
+            <code>app/code/Orca/Celebrations/registration.php</code>.</li>
+        <li>Run the same <code>bin/magento</code> commands listed above, from <code>module:enable</code> on.</li>
+    </ol>
+
+    <div class="note">In developer mode <code>setup:di:compile</code> and <code>setup:static-content:deploy</code> are
+        optional. In production mode, run <code>bin/magento deploy:mode:set production</code> instead of those two
+        commands.</div>
+
+    <h2>Verify the installation</h2>
+<pre><code>bin/magento module:status Orca_Celebrations</code></pre>
+    <p>The module is listed as enabled, and the <span class="path">Marketing › Celebrations › Manage
+        Celebrations</span> menu item is available in the admin.</p>
+</section>
+
+<section class="chapter">
+    <h1>4. Configuration</h1>
+    <p>Go to <span class="path">Stores › Configuration › Orca › Celebrations</span>.</p>
+    <figure>
+        <img src="img/celebrations-config.png" alt="Celebrations configuration">
+        <figcaption>Module configuration.</figcaption>
+    </figure>
+    <table>
+        <tr><th>Group</th><th>Setting</th><th>Scope</th><th>Description</th></tr>
+        <tr><td>General</td><td>Enable</td><td>Store view</td>
+            <td>Turns all celebrations on or off for the selected scope. Changing it purges the cached pages.</td></tr>
+        <tr><td>Cron</td><td>Frequency, Start Time</td><td>Global</td>
+            <td>When the next dates shown in the admin grid are refreshed. The storefront does not depend on this
+                job.</td></tr>
+    </table>
+</section>
+
+<section class="chapter">
+    <h1>5. Managing celebrations</h1>
+    <p>Go to <span class="path">Marketing › Celebrations › Manage Celebrations</span>. The grid lists every
+        celebration with its store views, pages, recurrence, effect and the next date range in which it will run.
+        Use the <strong>Columns</strong> control to show more fields, such as the intensity, size, duration or all
+        the colors.</p>
+    <figure>
+        <img src="img/celebrations-grid.png" alt="Celebrations grid">
+        <figcaption>Celebrations grid with the next date range of each celebration.</figcaption>
+    </figure>
+    <p>Click <strong>Add New Celebration</strong> to create one, or <strong>Edit</strong> in the Action column to
+        change it. Celebrations can be deleted one by one or with the mass action.</p>
+
+    <h2>Celebration information</h2>
+    <figure>
+        <img src="img/celebrations-form-general.png" alt="Celebration information">
+        <figcaption>Schedule, store views and pages.</figcaption>
+    </figure>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Title</td><td>Internal name, shown only in the admin.</td></tr>
+        <tr><td>Enabled</td><td>Disabled celebrations never run.</td></tr>
+        <tr><td>Store View</td><td>Store views where the celebration runs. <em>All Store Views</em> includes the ones
+            created later.</td></tr>
+        <tr><td>Show On Pages</td><td><em>All Pages</em> or any combination of home, category, product, CMS pages,
+            cart, checkout, order success and customer account pages.</td></tr>
+        <tr><td>Show On Mobile</td><td>When disabled, the effect does not run on small screens.</td></tr>
+        <tr><td>Recurrence Type</td><td><strong>Once</strong>: between the start and end dates.
+            <strong>Yearly</strong>: between the same days every year; a range such as December 31 to January 1
+            crosses the new year. <strong>Always</strong>: no dates.</td></tr>
+        <tr><td>Start Date, End Date</td><td>Both days included, in the timezone of the store view.</td></tr>
+    </table>
+
+    <h2>Celebration effect</h2>
+    <figure>
+        <img src="img/celebrations-form-effect.png" alt="Snowfall effect settings">
+        <figcaption>Snowfall settings: a single color, an optional image and a shadow.</figcaption>
+    </figure>
+    <table>
+        <tr><th>Field</th><th>Description</th></tr>
+        <tr><td>Effect Type</td><td>Snowfall, fireworks or confetti. The fields below change with the effect.</td></tr>
+        <tr><td>Effect Intensity</td><td>Low, medium or high: how many flakes, rockets or confetti pieces.</td></tr>
+        <tr><td>Effect Size</td><td>Small, medium or large.</td></tr>
+        <tr><td>Effect Duration (seconds)</td><td>From 0 to 3600. Leave it empty for no time limit; the effect fades
+            out when the time is up.</td></tr>
+        <tr><td>Use Multicolor</td><td>Fireworks and confetti. Enabled: random colors. Disabled: up to three
+            colors of your choice.</td></tr>
+        <tr><td>Effect Color</td><td>Snowfall: the color of the flakes.</td></tr>
+        <tr><td>Effect Image</td><td>Snowfall: an optional image (for example a logo or a snowflake) used instead of
+            the round flakes.</td></tr>
+        <tr><td>Use Shadow</td><td>Snowfall: adds a soft shadow so white flakes stay visible on light
+            backgrounds.</td></tr>
+    </table>
+    <figure>
+        <img src="img/celebrations-form-fireworks.png" alt="Fireworks effect settings">
+        <figcaption>Fireworks with random colors.</figcaption>
+    </figure>
+</section>
+
+<section class="chapter">
+    <h1>6. Effects</h1>
+    <p>Effects are drawn on a transparent layer over the page. They never block clicks, links or forms, and they are
+        not shown to visitors who have enabled the <em>reduce motion</em> setting of their operating system.</p>
+    <figure>
+        <img src="img/storefront-snowfall.png" alt="Snowfall">
+        <figcaption>Snowfall.</figcaption>
+    </figure>
+    <figure>
+        <img src="img/storefront-fireworks.png" alt="Fireworks">
+        <figcaption>Fireworks.</figcaption>
+    </figure>
+    <figure>
+        <img src="img/storefront-confetti.png" alt="Confetti">
+        <figcaption>Confetti.</figcaption>
+    </figure>
+    <p>When several celebrations are active on the same page, all of them run.</p>
+</section>
+
+<section class="chapter">
+    <h1>7. How effects work with the cache</h1>
+    <p>Every page includes the enabled celebrations of its store view and page type. The visitor's browser decides
+        which of them are active for the current date in the store timezone, so effects start and stop on time even
+        when the page comes from the full page cache or Varnish.</p>
+    <p>Pages are tagged with <code>orca_celebration</code>. Saving or deleting a celebration, or enabling or disabling
+        the module, purges them from the full page cache and Varnish automatically. No manual cache flush is
+        needed.</p>
+
+    <h1 style="margin-top: 10mm">8. Command line</h1>
+    <p>Refresh the next dates shown in the admin grid without waiting for the cron:</p>
+<pre><code>bin/magento orca:celebrations:next-dates</code></pre>
+
+    <h1 style="margin-top: 10mm">9. Uninstallation</h1>
+    <p>Installed with Composer:</p>
+<pre><code>bin/magento module:uninstall Orca_Celebrations --remove-data</code></pre>
+    <p>Installed manually:</p>
+<pre><code>bin/magento module:disable Orca_Celebrations
+rm -rf app/code/Orca/Celebrations
+bin/magento setup:upgrade</code></pre>
+    <p><code>--remove-data</code> drops the <code>orca_celebrations_celebration</code> table, the module
+        configuration and the uploaded effect images. Without it, and after a manual uninstallation, the data is kept
+        so the celebrations are still there if you install the module again.</p>
+</section>
+
+<section class="chapter">
+    <h1>10. Troubleshooting</h1>
+    <table>
+        <tr><th>Problem</th><th>Solution</th></tr>
+        <tr><td>The effect does not appear</td><td>Check that the module is enabled for the store view, that the
+            celebration is enabled and assigned to that store view and page, and that today is within its dates in
+            the store timezone. Effects are not shown when the device has <em>reduce motion</em> enabled, and on
+            mobile when <em>Show On Mobile</em> is off.</td></tr>
+        <tr><td>Changes are not visible on the storefront</td><td>Saving purges the cache automatically. If you use a
+            CDN in front of Varnish, purge it as well. In production mode, make sure static content was deployed after
+            installing or upgrading.</td></tr>
+        <tr><td>The next dates in the grid are outdated</td><td>They are only informative. Run
+            <code>bin/magento orca:celebrations:next-dates</code> or check that the Magento cron is running.</td></tr>
+    </table>
+
+    <h1 style="margin-top: 10mm">11. Support</h1>
+    <p>For questions, bug reports or feature requests, contact us at <a href="mailto:orcashop.team@gmail.com">orcashop.team@gmail.com</a>.
+        Please include your Magento and PHP versions and the module version.</p>
+    <p>Third-party libraries: fireworks-js (MIT license). See <code>THIRD-PARTY-NOTICES.md</code> in the package.</p>
+</section>
+
+</body>
+</html>
